@@ -497,6 +497,10 @@ struct BatchPublishRequest: Sendable {
     let destinationURL: URL
     let masterURLs: [MasterID: URL]
     let dpi: Int
+    /// Carried on the request rather than read from settings inside the
+    /// workflow, so the curve that publishes is the one the operator was
+    /// looking at when they pressed Complete Batch.
+    let brightness: BrightnessAdjustment
 }
 
 struct BatchPublishReceipt: Sendable {
@@ -1948,6 +1952,24 @@ final class ScanDeckPresentationModel {
         }
     }
 
+    /// The tone curve the review grid shows and publication will bake in.
+    ///
+    /// Held here rather than on the session for a reason worth keeping: it is
+    /// re-appliable from untouched masters, so nothing about it needs to
+    /// survive a crash, and adding a field to the session record would have
+    /// meant migrating a schema with a real unpublished batch sitting in it.
+    var brightness: BrightnessAdjustment {
+        get { settings.brightness }
+        set {
+            guard newValue != settings.brightness else {
+                return
+            }
+            var updated = settings
+            updated.brightness = newValue
+            apply(updated)
+        }
+    }
+
     @ObservationIgnored
     private var autoContinueTask: Task<Void, Never>?
 
@@ -3141,7 +3163,8 @@ final class ScanDeckPresentationModel {
             publishedAt: .now,
             destinationBookmark: bookmark,
             releasedWithSizeWarnings: releasedWithSizeWarnings,
-            releasedWithAcceptedMismatches: releasedWithAcceptedMismatches
+            releasedWithAcceptedMismatches: releasedWithAcceptedMismatches,
+            brightness: brightness
         )
         do {
             try publishedBatchStore.append(record)
@@ -3411,7 +3434,8 @@ final class ScanDeckPresentationModel {
             candidate: candidate,
             destinationURL: destinationURL,
             masterURLs: masterURLs,
-            dpi: batchContext?.profile.resolutionDPI ?? 600
+            dpi: batchContext?.profile.resolutionDPI ?? 600,
+            brightness: brightness
         )
 
         // The counts arrive from whichever thread is cropping. Funnelling them

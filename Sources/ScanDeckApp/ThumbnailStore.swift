@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ScanDeckCore
 import ScanDeckImagePipeline
 
 /// Where a master's published crop falls, and how big the master is.
@@ -32,19 +33,27 @@ final class ThumbnailStore {
         }
     }
 
-    /// A preview is identified by its master *and* the crop it shows, so the
-    /// uncropped preview served before analysis finishes is replaced rather
-    /// than kept once the crop is known.
+    /// A preview is identified by its master, the crop it shows, *and* the tone
+    /// curve applied to it, so the uncropped preview served before analysis
+    /// finishes is replaced once the crop is known — and so moving the
+    /// brightness slider does not serve back the previous setting's pixels from
+    /// the cache. Leaving brightness out of this key is the whole feature
+    /// failing silently: the file would change and the grid would not.
     private struct PreviewKey: Hashable {
         let url: URL
         let crop: PublishedCrop?
+        let brightness: BrightnessAdjustment
 
         var cacheKey: NSString {
+            let tone = brightness.isIdentity
+                ? ""
+                : "#tone=\(brightness.amount)"
             guard let crop else {
-                return url.absoluteString as NSString
+                return (url.absoluteString + tone) as NSString
             }
             return "\(url.absoluteString)#crop=\(crop.bounds.x),\(crop.bounds.y)"
                 .appending(",\(crop.bounds.width),\(crop.bounds.height)")
+                .appending(tone)
                 as NSString
         }
     }
@@ -52,7 +61,7 @@ final class ThumbnailStore {
     private let cache = NSCache<NSString, Entry>()
     private var inFlight: [PreviewKey: Task<CGImage?, Never>] = [:]
     private let maximumPixelSize: Int
-    private let decode: @Sendable (URL, Int) throws -> CGImage
+    private let decode: @Sendable (URL, Int, BrightnessAdjustment) throws -> CGImage
 
     /// `decode` exists so a test can count disk reads. Proving "the repeat
     /// request came from the cache" by deleting the master and reading again
@@ -61,8 +70,13 @@ final class ThumbnailStore {
     init(
         maximumPixelSize: Int = ThumbnailDecoder.defaultMaximumPixelSize,
         memoryLimitBytes: Int = 128 * 1_024 * 1_024,
-        decode: @escaping @Sendable (URL, Int) throws -> CGImage = {
-            try ThumbnailDecoder.decode(contentsOf: $0, maximumPixelSize: $1)
+        decode: @escaping @Sendable (URL, Int, BrightnessAdjustment) throws
+            -> CGImage = {
+            try ThumbnailDecoder.decode(
+                contentsOf: $0,
+                maximumPixelSize: $1,
+                brightness: $2
+            )
         }
     ) {
         self.maximumPixelSize = maximumPixelSize
@@ -78,9 +92,10 @@ final class ThumbnailStore {
     /// reads as a bad one, and a genuinely bad crop is invisible.
     func thumbnail(
         for url: URL,
-        croppedTo crop: PublishedCrop? = nil
+        croppedTo crop: PublishedCrop? = nil,
+        brightness: BrightnessAdjustment = .identity
     ) async -> CGImage? {
-        let key = PreviewKey(url: url, crop: crop)
+        let key = PreviewKey(url: url, crop: crop, brightness: brightness)
         if let cached = cache.object(forKey: key.cacheKey) {
             return cached.image
         }
@@ -91,7 +106,11 @@ final class ThumbnailStore {
         let maximumPixelSize = maximumPixelSize
         let decode = decode
         let task = Task.detached(priority: .userInitiated) { () -> CGImage? in
-            guard let decoded = try? decode(url, maximumPixelSize) else {
+            guard let decoded = try? decode(
+                url,
+                maximumPixelSize,
+                brightness
+            ) else {
                 return nil
             }
             guard let crop else {

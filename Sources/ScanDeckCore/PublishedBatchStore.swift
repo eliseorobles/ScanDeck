@@ -80,6 +80,22 @@ public struct PublishedBatchRecord: Codable, Equatable, Identifiable, Sendable {
     /// failure is silent in the direction that costs money.
     public let artworkSide: ArtworkSide?
 
+    /// The tone curve baked into this batch's files.
+    ///
+    /// Recorded because after this it is unrecoverable: the curve is applied at
+    /// publication and the masters that could prove what it was are the
+    /// operator's to delete. A folder that looks brighter than another is not
+    /// evidence of anything on its own.
+    ///
+    /// **Unlike `artworkSide`, this one gets a default, and the difference is
+    /// the point.** `artworkSide` refuses one because both candidates are wrong
+    /// for half the operator's folders. Here the identity is *correct* for
+    /// every batch published before this field existed and for every folder
+    /// imported off disk — none of them were adjusted, because nothing could
+    /// adjust them. Do not make this optional for symmetry with the field
+    /// above it.
+    public let brightness: BrightnessAdjustment
+
     public init(
         id: BatchID,
         jobID: JobID,
@@ -93,7 +109,8 @@ public struct PublishedBatchRecord: Codable, Equatable, Identifiable, Sendable {
         releasedWithSizeWarnings: [UInt64] = [],
         releasedWithAcceptedMismatches: [UInt64] = [],
         isImported: Bool = false,
-        artworkSide: ArtworkSide? = .frontSuffix
+        artworkSide: ArtworkSide? = .frontSuffix,
+        brightness: BrightnessAdjustment = .identity
     ) {
         self.id = id
         self.jobID = jobID
@@ -108,6 +125,7 @@ public struct PublishedBatchRecord: Codable, Equatable, Identifiable, Sendable {
         self.releasedWithAcceptedMismatches = releasedWithAcceptedMismatches
         self.isImported = isImported
         self.artworkSide = artworkSide
+        self.brightness = brightness
     }
 
     /// Decoded with defaults so a history file written before these fields
@@ -152,6 +170,10 @@ public struct PublishedBatchRecord: Codable, Equatable, Identifiable, Sendable {
             ArtworkSide.self,
             forKey: .artworkSide
         )
+        brightness = try container.decodeIfPresent(
+            BrightnessAdjustment.self,
+            forKey: .brightness
+        ) ?? .identity
     }
 
     /// Whether centering may run against this folder yet.
@@ -173,7 +195,8 @@ public struct PublishedBatchRecord: Codable, Equatable, Identifiable, Sendable {
             releasedWithSizeWarnings: releasedWithSizeWarnings,
             releasedWithAcceptedMismatches: releasedWithAcceptedMismatches,
             isImported: isImported,
-            artworkSide: side
+            artworkSide: side,
+            brightness: brightness
         )
     }
 

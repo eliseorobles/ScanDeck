@@ -136,7 +136,8 @@ final class ScanDeckWorkflowActions: ScanDeckAppActions {
             destinationRoot: request.destinationURL,
             cards: cards,
             margins: candidate.requestedMargins,
-            dpi: request.dpi
+            dpi: request.dpi,
+            brightness: request.brightness
         )
 
         let publisher = publisher
