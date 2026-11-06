@@ -417,6 +417,7 @@ public struct CardImageCropper: Sendable {
         dpi: Int = 600,
         quality: Double = 0.95,
         rotation: QuarterTurns = .zero,
+        brightness: BrightnessAdjustment = .identity,
         allowInsufficientPreview: Bool = false
     ) throws -> CropOutput {
         let decoded = try decode(sourceURL)
@@ -495,9 +496,16 @@ public struct CardImageCropper: Sendable {
         // the published JPEG is correct in every consumer, including
         // carduploader.
         let oriented = try rotate(cropped, by: rotation)
+        // Brightness goes last, after everything geometric has settled. Its
+        // position relative to `rotate` does not change a pixel — a quarter
+        // turn permutes pixels and the curve maps each one independently — but
+        // its position relative to `analyze` is the entire safety argument, and
+        // putting it here makes that impossible to get wrong by editing the
+        // lines above. See `ToneCurve`.
+        let toned = try ToneCurve.apply(brightness, to: oriented)
         CGImageDestinationAddImage(
             destination,
-            oriented,
+            toned,
             properties as CFDictionary
         )
         guard CGImageDestinationFinalize(destination) else {

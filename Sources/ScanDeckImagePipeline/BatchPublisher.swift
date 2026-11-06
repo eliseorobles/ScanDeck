@@ -37,6 +37,13 @@ public struct PublicationRequest: Equatable, Sendable {
     public let dpi: Int
     public let quality: Double
 
+    /// The tone curve baked into every file this request writes.
+    ///
+    /// Defaulted to the identity so every existing caller and test publishes
+    /// exactly what it published before, and so the one batch property that can
+    /// change a published pixel has to be asked for explicitly.
+    public let brightness: BrightnessAdjustment
+
     public init(
         batchName: BatchName,
         destinationRoot: URL,
@@ -44,7 +51,8 @@ public struct PublicationRequest: Equatable, Sendable {
         margins: ScanMargins = .cardDefault,
         template: FilenameTemplate = .cardDefault,
         dpi: Int = 600,
-        quality: Double = 0.95
+        quality: Double = 0.95,
+        brightness: BrightnessAdjustment = .identity
     ) {
         self.batchName = batchName
         self.destinationRoot = destinationRoot
@@ -53,6 +61,7 @@ public struct PublicationRequest: Equatable, Sendable {
         self.template = template
         self.dpi = dpi
         self.quality = quality
+        self.brightness = brightness
     }
 }
 
@@ -240,6 +249,7 @@ public struct BatchPublisher: Sendable {
         let margins = request.margins
         let dpi = request.dpi
         let quality = request.quality
+        let brightness = request.brightness
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             var next = 0
@@ -266,7 +276,8 @@ public struct BatchPublisher: Sendable {
                             margins: margins,
                             dpi: dpi,
                             quality: quality,
-                            rotation: item.side.rotation
+                            rotation: item.side.rotation,
+                            brightness: brightness
                         )
                         try DurableFile.flush(destination)
                     }

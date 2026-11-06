@@ -10,6 +10,11 @@ ScanDeck.app/
 m0-output-*/
 .env
 
+# Editor state. The Swift extension for VS Code writes launch configurations
+# for the bare SwiftPM executables, which is exactly the launch path README.md
+# tells people not to use; Scripts/bundle-app.sh is the supported one.
+.vscode/
+
 # The centering tool (D-11 / TICKET-034). It lives here for convenience and
 # must never reach GitHub: this repository has a live public remote, so a
 # stray commit is one push from publishing it. The pre-commit guard in

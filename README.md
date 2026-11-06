@@ -31,7 +31,7 @@ your machine.
 | **Platform** | macOS 26, Apple Silicon |
 | **Scanner** | Ricoh / Fujitsu **fi-8170** (the only model supported today — see below) |
 | **Cost** | Free, MIT, open source |
-| **Tests** | 251 tests in 29 suites, no scanner required |
+| **Tests** | 267 tests in 31 suites, no scanner required |
 
 ## Why this exists
 
@@ -110,7 +110,8 @@ output is shaped for, described from their own public documentation.
 ## Requirements
 
 - **macOS 26**, Apple Silicon
-- **Xcode 26** to build (Swift 6.2)
+- **Xcode 26** or later to build (Swift 6.2 or later; verified with Xcode 26.3
+  and 27.2)
 - A **Ricoh / Fujitsu fi-8170** with the PFU ICA driver installed
 
 ### About scanner support
@@ -132,19 +133,66 @@ have a duplex ADF scanner with a macOS ICA driver, `swift run scandeck-m0 --list
 and `--inspect` cost you nothing and produce exactly the data needed. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Install and run
+## Getting started
+
+There is no downloadable release yet (it is an open issue), so ScanDeck is built
+from source. On a Mac that already has Xcode this takes about five minutes.
+
+### 1. What you need
+
+- A Mac with **Apple Silicon** running **macOS 26** or later.
+- **Xcode 26** or later from the Mac App Store. The Swift toolchain ships inside
+  it. Open Xcode once so it can finish installing its components, then point the
+  command line at it:
+
+  ```sh
+  sudo xcode-select -s /Applications/Xcode.app
+  swift --version        # Swift 6.2 or later
+  ```
+
+- To scan: a **Ricoh / Fujitsu fi-8170** over USB, with Ricoh's macOS ICA
+  driver installed (the same driver Apple Image Capture uses). Any other scanner
+  is detected, named, and refused. To try ScanDeck without a scanner, skip this
+  and use the synthetic page source below.
+
+### 2. Build and launch
 
 ```sh
 git clone https://github.com/eliseorobles/ScanDeck.git
 cd ScanDeck
-swift build
 bash Scripts/bundle-app.sh --run
 ```
 
-`bundle-app.sh` builds `.build/ScanDeck.app`, ad-hoc signs it, and launches it.
+The first build takes a few minutes; later ones are incremental. The script
+builds `.build/ScanDeck.app`, ad-hoc signs it, and opens it. To launch it again
+later, run the same command or `open .build/ScanDeck.app`.
+
 **Use the bundle rather than `swift run ScanDeck`** — a bare SwiftPM executable
 registers as background-only, which means text fields silently ignore every
 keystroke.
+
+Because the bundle is ad-hoc signed, macOS may ask for access to your
+destination folder again after a rebuild. That is expected.
+
+### 3. Scan a batch
+
+1. Choose the built-in **Cards 600 Full Border** profile.
+2. Press **Choose Destination** to pick a folder, then type a batch name such
+   as `aug01-sale`. The name must be new — ScanDeck never writes into a folder
+   that already exists.
+3. Load the feeder and press **Scan**. Each card appears as a front/back pair
+   with its number, crop preview already applied.
+4. Review. Rotate or delete a side, delete or replace a card, **Retry Card**
+   on an incomplete one, or **Continue Scanning** to add another feeder pass.
+   If the whole stack scanned dark, the **Brightness** slider in the action bar
+   lifts every card in the batch; the preview shows exactly what will be
+   published.
+5. Press **Complete Batch**. The folder appears in your destination in one
+   atomic step, and the summary offers Show in Finder and New Batch.
+
+The **Check Centering** button on the summary depends on a tool that is not part
+of this repository. In a fresh clone it reports itself unavailable; everything
+else works.
 
 ### No scanner? Run the whole pipeline anyway
 
@@ -168,6 +216,13 @@ Also accepts `--timeout SECONDS` (inactivity, not total elapsed) and
 `--scan-window WxH` (an investigation flag; the app never sets it). `--scan`
 requires a new or empty output directory and expects exactly two pages.
 
+### Run the tests
+
+```sh
+swift test                 # the whole suite, no scanner required
+swift test -c release      # what CI runs; image suites are much faster here
+```
+
 ## What you get
 
 ```
@@ -187,11 +242,16 @@ requires a new or empty output directory and expects exactly two pages.
   cancellations; deleted cards leave intentional gaps rather than reusing numbers
 - The batch folder is created by **atomic rename** from a staging directory on
   the same volume. ScanDeck never merges into or overwrites an existing batch.
+- An optional **brightness** adjustment: one setting for the whole batch,
+  previewed in the review grid before it is baked into the published files. It
+  is a gamma curve, so black and white stay fixed and nothing clips; at its
+  default of None the output is byte-identical to an unadjusted publish. The
+  setting is recorded in the batch history.
 
 ## Design rules it will not break
 
 These come from [SPEC.md](SPEC.md) and are enforced by an event-sourced reducer
-with 251 tests behind it, not by UI code:
+with 267 tests behind it, not by UI code:
 
 1. **Never lose an acknowledged page.** No jam, multifeed, disconnect, crash or
    save failure may discard a page the app already accepted.
@@ -262,7 +322,7 @@ reasons:
 it caps everything else — more scanners means more users, and contributors come
 from users. The correctness guarantee is exactly what makes the project worth
 widening, so the work is to grow the device list *without* loosening it. The
-test harness for that already exists: 251 tests run with no scanner, and
+test harness for that already exists: 267 tests run with no scanner, and
 `--synthetic` exercises the real crop, verdict, deskew and publication path.
 
 ### You do not need a scanner

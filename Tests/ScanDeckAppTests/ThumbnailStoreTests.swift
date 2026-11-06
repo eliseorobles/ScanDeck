@@ -20,11 +20,12 @@ struct ThumbnailStoreTests {
         // of the assertion, and `NSCache` may evict under the memory pressure
         // a parallel test run supplies.
         let decodeCount = DecodeCounter()
-        let store = ThumbnailStore(decode: { url, maximumPixelSize in
+        let store = ThumbnailStore(decode: { url, maximumPixelSize, brightness in
             decodeCount.increment()
             return try ThumbnailDecoder.decode(
                 contentsOf: url,
-                maximumPixelSize: maximumPixelSize
+                maximumPixelSize: maximumPixelSize,
+                brightness: brightness
             )
         })
 

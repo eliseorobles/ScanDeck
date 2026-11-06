@@ -23,14 +23,25 @@ public struct ScanDeckSettings: Codable, Equatable, Sendable {
     /// this person feeds a scanner, not of one batch.
     public var autoContinueSeconds: Int
 
+    /// The tone curve baked into published cards.
+    ///
+    /// An installation preference rather than a job or batch property, because
+    /// it describes this scanner under this lamp on this operator's desk — the
+    /// same reason `autoContinueSeconds` lives here. It is read at publication
+    /// and applied to previews throughout review, so the operator sets it once
+    /// and every later batch inherits it.
+    public var brightness: BrightnessAdjustment
+
     public static let autoContinueSecondsRange = 1...60
 
     public init(
         preferredScannerName: String? = nil,
-        autoContinueSeconds: Int = 5
+        autoContinueSeconds: Int = 5,
+        brightness: BrightnessAdjustment = .identity
     ) {
         self.preferredScannerName = preferredScannerName
         self.autoContinueSeconds = autoContinueSeconds
+        self.brightness = brightness
     }
 
     /// Decoded field by field so a record written before a field existed still
@@ -46,6 +57,10 @@ public struct ScanDeckSettings: Codable, Equatable, Sendable {
             Int.self,
             forKey: .autoContinueSeconds
         ) ?? 5
+        brightness = try container.decodeIfPresent(
+            BrightnessAdjustment.self,
+            forKey: .brightness
+        ) ?? .identity
     }
 
     public static let `default` = ScanDeckSettings()

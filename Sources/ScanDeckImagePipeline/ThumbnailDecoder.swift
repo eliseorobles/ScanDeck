@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import ScanDeckCore
 
 public enum ThumbnailDecoderError: Error, Equatable, LocalizedError, Sendable {
     case unreadableImage
@@ -28,9 +29,15 @@ public enum ThumbnailDecoder {
     /// The review-grid preview size from `SPEC.md` section 6.3.
     public static let defaultMaximumPixelSize = 512
 
+    /// - Parameter brightness: The same curve publication will bake in. The
+    ///   preview is the operator's only chance to see the adjustment before
+    ///   committing to it, so it must be the identical mapping and not a
+    ///   display-layer approximation of it — a slider that lies about its own
+    ///   result is worse than no slider.
     public static func decode(
         contentsOf url: URL,
-        maximumPixelSize: Int = defaultMaximumPixelSize
+        maximumPixelSize: Int = defaultMaximumPixelSize,
+        brightness: BrightnessAdjustment = .identity
     ) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             throw ThumbnailDecoderError.unreadableImage
@@ -54,6 +61,6 @@ public enum ThumbnailDecoder {
         ) else {
             throw ThumbnailDecoderError.cannotDecodeThumbnail
         }
-        return thumbnail
+        return try ToneCurve.apply(brightness, to: thumbnail)
     }
 }

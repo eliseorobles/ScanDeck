@@ -66,6 +66,7 @@ struct BatchWorkspaceView: View {
                                     isBlocked: batch.blockedCardIDs.contains(card.id),
                                     resolutionDPI: batch.profile.resolutionDPI,
                                     scanInProgress: batch.phase == .scanning,
+                                    brightness: model.brightness,
                                     select: {
                                         model.selectedCardID = card.id
                                     },
@@ -374,10 +375,18 @@ private struct ScannerUnavailableBanner: View {
                 Text(connection.title)
                     .font(.headline)
                 if let correctiveAction = connection.correctiveAction {
+                    // No `fixedSize(vertical: true)` here, and it is
+                    // load-bearing that none returns: inside the workspace's
+                    // pinned top inset, macOS 26's split view probes the
+                    // column at an unspecified width, and a vertically fixed
+                    // multiline text answers that probe with its many-line
+                    // height. The split view then adopts — and persists — a
+                    // frame taller than the screen, which is how the whole
+                    // window rendered clipped on every edge with Complete
+                    // Batch unreachable below the bottom.
                     Text(correctiveAction)
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -515,6 +524,7 @@ private struct CardPairRow: View {
     let isBlocked: Bool
     let resolutionDPI: Int
     let scanInProgress: Bool
+    let brightness: BrightnessAdjustment
     let select: () -> Void
     let rotate: (OutputSide) -> Void
     let deleteSide: (OutputSide) -> Void
@@ -637,6 +647,7 @@ private struct CardPairRow: View {
                     side: .front,
                     scan: card.front,
                     disabled: scanInProgress,
+                    brightness: brightness,
                     rotate: { rotate(.front) },
                     delete: { deleteSide(.front) }
                 )
@@ -645,6 +656,7 @@ private struct CardPairRow: View {
                     side: .back,
                     scan: card.back,
                     disabled: scanInProgress,
+                    brightness: brightness,
                     rotate: { rotate(.back) },
                     delete: { deleteSide(.back) }
                 )
@@ -702,6 +714,7 @@ private struct ScanSideCard: View {
     let side: OutputSide
     let scan: ScanSideViewData?
     let disabled: Bool
+    let brightness: BrightnessAdjustment
     let rotate: () -> Void
     let delete: () -> Void
 
@@ -728,8 +741,12 @@ private struct ScanSideCard: View {
                     .fill(.black)
 
                 if let scan {
-                    ScanImageContent(scan: scan, side: side)
-                        .padding(13)
+                    ScanImageContent(
+                        scan: scan,
+                        side: side,
+                        brightness: brightness
+                    )
+                    .padding(13)
                 } else {
                     MissingSideContent(side: side)
                 }
@@ -811,11 +828,13 @@ private struct ScanSideCard: View {
 private struct PreviewRequest: Equatable {
     let url: URL?
     let crop: PublishedCrop?
+    let brightness: BrightnessAdjustment
 }
 
 private struct ScanImageContent: View {
     let scan: ScanSideViewData
     let side: OutputSide
+    let brightness: BrightnessAdjustment
 
     @State private var preview: CGImage?
 
@@ -851,14 +870,25 @@ private struct ScanImageContent: View {
         // be written rather than the whole scan frame. Until analysis lands the
         // preview is the uncropped master, which is honest: nothing yet knows
         // where the card is.
-        .task(id: PreviewRequest(url: scan.imageURL, crop: scan.publishedCrop)) {
+        //
+        // Keyed on the tone curve as well, so dragging the brightness slider
+        // re-renders the grid rather than leaving the operator looking at the
+        // previous setting while the file that would be written has moved on.
+        .task(
+            id: PreviewRequest(
+                url: scan.imageURL,
+                crop: scan.publishedCrop,
+                brightness: brightness
+            )
+        ) {
             guard let url = scan.imageURL else {
                 preview = nil
                 return
             }
             preview = await ThumbnailStore.shared.thumbnail(
                 for: url,
-                croppedTo: scan.publishedCrop
+                croppedTo: scan.publishedCrop,
+                brightness: brightness
             )
         }
     }
@@ -938,6 +968,76 @@ private struct MarginStatusBadge: View {
             .foregroundStyle(.orange)
             .font(.caption2.weight(.semibold))
         }
+    }
+}
+
+/// Brightness: one slider for the whole batch, previewed before it is spent.
+///
+/// One control, not one per card. At 186 rows a per-card adjustment is not a
+/// feature, it is 186 decisions — and the reason to reach for this at all is
+/// that a whole stack scanned dark, which is a property of the pass rather than
+/// of any card in it.
+///
+/// The value is stepped rather than continuous. A drag is doing real work per
+/// tick — every visible preview re-decodes — so the step is what keeps a slow
+/// sweep from queueing hundreds of decodes it will immediately discard, and 5%
+/// is finer than the eye can separate on a card face anyway.
+private struct BrightnessControl: View {
+    @Bindable var model: ScanDeckPresentationModel
+
+    private var amount: Binding<Double> {
+        Binding(
+            get: { model.brightness.amount },
+            set: { model.brightness = BrightnessAdjustment(amount: $0) }
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sun.max")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+                .accessibilityHidden(true)
+
+            Slider(
+                value: amount,
+                in: BrightnessAdjustment.range,
+                step: 0.05
+            )
+            .frame(width: 96)
+            .controlSize(.mini)
+            .accessibilityLabel("Brightness")
+            .accessibilityValue(model.brightness.operatorDescription)
+
+            // The number is not decoration. The curve is baked into the
+            // published file, so the operator needs to be able to say what a
+            // batch was published at — and to put it back to None exactly,
+            // which a slider alone cannot promise.
+            Button {
+                model.brightness = .identity
+            } label: {
+                Text(model.brightness.operatorDescription)
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(
+                        model.brightness.isIdentity ? .tertiary : .secondary
+                    )
+                    .frame(width: 38, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.brightness.isIdentity)
+            .help(
+                model.brightness.isIdentity
+                    ? "Published cards are unadjusted."
+                    : "Reset brightness to None."
+            )
+        }
+        .help(
+            "Lifts the tone of every card in this batch. The preview shows "
+                + "exactly what will be published; the masters are never "
+                + "changed, so this can be adjusted until you complete the "
+                + "batch."
+        )
     }
 }
 
@@ -1088,6 +1188,38 @@ private struct BatchActionBar: View {
 
             Spacer()
 
+            // The brightness control yields first when the bar runs out of
+            // room. The bar's fixed controls set the detail column's minimum
+            // width, and on macOS 26 a split view that cannot seat its
+            // columns lays out wider than the window instead of compressing
+            // — with the open inspector that pushed Complete Batch off the
+            // window's right edge. Scan and Complete must never be the
+            // controls that give way, and the slider stays reachable by
+            // closing the inspector or widening the window.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) {
+                    // Hidden until there is something to look at: a slider
+                    // over an empty grid adjusts nothing and previews
+                    // nothing.
+                    if !batch.cards.isEmpty {
+                        BrightnessControl(model: model)
+                        Divider().frame(height: 22)
+                    }
+                    trailingControls
+                }
+                trailingControls
+            }
+        }
+        .padding(.horizontal, 22)
+        .frame(height: 66)
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private var trailingControls: some View {
+        HStack(spacing: 16) {
             AutoContinueControl(model: model)
 
             GlassEffectContainer(spacing: 10) {
@@ -1124,12 +1256,6 @@ private struct BatchActionBar: View {
                     .help(model.completionBlockReason ?? "Publish the final batch folder")
                 }
             }
-        }
-        .padding(.horizontal, 22)
-        .frame(height: 66)
-        .background(.bar)
-        .overlay(alignment: .top) {
-            Divider()
         }
     }
 }
