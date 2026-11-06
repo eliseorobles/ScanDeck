@@ -1,0 +1,81 @@
+name: Bug report
+description: Something in the app behaved wrongly. For a bad crop use the detection template instead.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Never attach a card scan.** Paste text, or a screenshot with any
+        card artwork cropped out.
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >
+        If you can reproduce it with `bash Scripts/bundle-app.sh --synthetic`,
+        say so — that means anyone can fix it without a scanner, which makes it
+        far more likely to get fixed quickly.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how_run
+    attributes:
+      label: How were you running ScanDeck?
+      options:
+        - "bash Scripts/bundle-app.sh --run (real scanner)"
+        - "bash Scripts/bundle-app.sh --synthetic (no scanner)"
+        - "swift run ScanDeck"
+        - "swift run scandeck-m0 (command line)"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        If you chose `swift run ScanDeck` and the symptom is that **typing does
+        nothing**: that is a known trap rather than a bug. A bare SwiftPM
+        executable registers as background-only and receives no keyboard events.
+        Use `bash Scripts/bundle-app.sh --run` instead and check with
+        `lsappinfo list | grep -A4 ScanDeck` that you get `type="Foreground"`.
+
+  - type: input
+    id: versions
+    attributes:
+      label: macOS version, and scanner if one was attached
+      placeholder: "macOS 26.5.2, fi-8170"
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: >
+        Settings → Copy Diagnostics Report. Content-free by construction — no
+        path, file name or batch name can reach it.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Before you submit
+      options:
+        - label: I have not attached any card scan or personal data
+          required: true

@@ -1,5 +1,10 @@
 # ScanDeck — free, open-source Mac scanning software for trading cards
 
+[![CI](https://github.com/eliseorobles/ScanDeck/actions/workflows/ci.yml/badge.svg)](https://github.com/eliseorobles/ScanDeck/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Platform: macOS 26](https://img.shields.io/badge/platform-macOS%2026-lightgrey)
+![Swift 6.2](https://img.shields.io/badge/Swift-6.2-orange)
+
 **Batch-scan trading cards front and back on macOS, at 600 dpi, with a real
 scanner-background border — and get numbered `_F` / `_B` pairs a listing tool
 can read.** ScanDeck drives a duplex ADF document scanner, crops each side to
@@ -222,9 +227,67 @@ The app scans real batches end to end on a physical fi-8170 — including a
 186-card production run. Milestones M0–M2 are met.
 
 Still open: a job/profile editor (there is one built-in profile today), an app
-icon, accessibility passes, CI, and a supported-scanner matrix. There is no CI
-yet, so there is no build badge — `swift test` on your own machine is the honest
-signal.
+icon, accessibility passes, a downloadable release, and a supported-scanner
+matrix. Every one of those has an [issue](https://github.com/eliseorobles/ScanDeck/issues).
+
+CI runs `swift build` and `swift test -c release` on every pull request, plus a
+hygiene job that fails if a card scan or any private working file ever becomes
+tracked.
+
+## Help make this the best scanning app on the Mac
+
+That is the actual goal, and it is reachable — but not by one person with one
+scanner.
+
+ScanDeck already does one thing nothing else on the Mac does: it **measures the
+border it is about to publish and refuses to publish a batch it cannot vouch
+for.** Every published pixel is captured background. When a card's two sides
+disagree by more than 140 px the batch stays blocked until a person overrules
+that specific card, and the overrule is stored against the two measured
+footprints so a re-scan invalidates it. That is not a slogan — it is a reducer,
+and you can go read it.
+
+"Best open-source Mac scanning app" would mean that same guarantee holds **on a
+scanner you already own, in an app you can download, driven from a keyboard.**
+All three of those currently fail, and none of them fail for architectural
+reasons:
+
+| The gap | Why it is not hard | Where |
+|---|---|---|
+| **One supported scanner** | The hardware seam is a single protocol. The allowlist is a two-entry `Set` | `ScannerInventory.swift:23` |
+| **No downloadable app** | The bundle script already builds and signs it; it needs notarization and a release | `Scripts/bundle-app.sh` |
+| **Mouse required** | Two review actions are hover-only, with no keyboard route | `BatchWorkspaceView.swift:741` |
+
+**Widening scanner support is the highest-value thing anyone can do here**, and
+it caps everything else — more scanners means more users, and contributors come
+from users. The correctness guarantee is exactly what makes the project worth
+widening, so the work is to grow the device list *without* loosening it. The
+test harness for that already exists: 251 tests run with no scanner, and
+`--synthetic` exercises the real crop, verdict, deskew and publication path.
+
+### You do not need a scanner
+
+This is the most common reason people assume they can't help, and it is wrong.
+Every issue is labelled `needs-fi-8170` or `no-hardware-needed`, and almost
+everything is the second one. The reducer, the SwiftUI shell, the JPEG and DPI
+metadata, the crash-safety primitives, the error copy, accessibility, docs and
+CI are all reachable with nothing but a Mac.
+
+### Good places to start
+
+- **[Open issues](https://github.com/eliseorobles/ScanDeck/issues)** — every one
+  names the files to touch and the command that proves it worked.
+- **Have a different duplex ADF scanner?** Run `swift run scandeck-m0 --list`
+  and `--inspect` and open a hardware datapoint. That is the seed of the
+  supported-scanner matrix and it costs you five minutes.
+- **Found a card ScanDeck measured wrong?** That is the most valuable bug report
+  this project can get. Tell us what the two sides measured — but never attach
+  the scan.
+- **Read [SPEC.md](SPEC.md) and poke holes in it.** It is the contract, and
+  disagreeing with it in an issue is a real contribution.
+
+You will get a reply. See [CONTRIBUTING.md](CONTRIBUTING.md) for what to expect
+and how changes land.
 
 ## Contributing
 

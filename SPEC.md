@@ -138,10 +138,11 @@ Every milestone is validated on Apple Silicon against the physical fi-8170 with 
 
 ## 8. Open questions & research
 
-Research is in `docs/research/` (all three tracks complete):
+Research is in `docs/research/`:
 - `macos-scanning-apis.md` — the ImageCaptureCore facts §6 is built on (verified against the macOS 26 SDK and the installed PFU driver binary)
-- `paperstream-capture-inventory.md` — full PaperStream Capture 6.0 feature inventory (from the official 644-page manual); the post-v1 backlog source: batch state machine + Batch Manager, three counter types with persistence modes, naming-token builder with live preview, marks/filters, separators, ad-hoc override, hotkeys/hardware-button job mapping
 - `competitor-gaps.md` — positioning: the real competitor is ExactScan Pro (~100€, own drivers), and the two structural gaps nothing on Mac has are the review-then-completion gate and first-class pair naming with transactional counters. VueScan's watermark-trial/renewal model is the goodwill killer to avoid.
+
+A third track — a feature inventory of PaperStream Capture 6.0, distilled from the vendor's 644-page manual — is the source of the post-v1 backlog below (batch state machine, three counter types with persistence modes, naming-token builder with live preview, marks/filters, separators, ad-hoc override, hardware-button job mapping). It is **not published**: it is a dense page-cited abstract of one copyrighted document, and nothing in ScanDeck needs it published to be useful. The backlog items it produced are listed here in their own right.
 
 A separate, broader UX study of a general-purpose PaperStream Capture remake (presets, OCR, searchable PDF, page-list review) exists as local research and is deliberately not published. **It is not this product's roadmap.** Settled 2026-07-28: ScanDeck stays a trading-card app and that document serves as a UX quality bar and post-v1 backlog only. Where the two disagree, this file wins. Consequently the domain models F/B *pairs*, not a general page list; adding a document profile later would be a reducer rewrite, accepted deliberately.
 

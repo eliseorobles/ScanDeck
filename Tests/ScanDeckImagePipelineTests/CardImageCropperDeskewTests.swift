@@ -130,8 +130,23 @@ struct CardImageCropperDeskewTests {
                 == result.analysis.requestedCropBounds.height
         )
 
-        // And the pixels came through by copy, not by interpolation: the
-        // output must equal the source region exactly.
+        // And the pixels came through by copy, not by interpolation.
+        //
+        // The comparison has a tolerance, and the reason is the file format
+        // rather than the pipeline: the fixture is a lossless PNG but `crop`
+        // publishes JPEG, and JPEG at quality 1.0 is still a DCT round-trip
+        // through YCbCr. It lands a flat region within a level or two, not on
+        // it. Asserting exact equality passed on one machine and failed in CI
+        // reading 17 where 18 went in — a difference produced by the encoder,
+        // not by anything ScanDeck did.
+        //
+        // The tolerance is small on purpose. Interpolating a 0.1° rotation
+        // moves an edge pixel by whole levels of contrast, so ±2 still catches
+        // a resample while admitting the codec. The load-bearing proof that
+        // nothing was resampled is above this loop and is exact: `tiltDegrees`
+        // is nil, so `square` is never called, and the output dimensions equal
+        // the requested crop bounds rather than a rotated bounding box.
+        let jpegRoundTripTolerance = 2
         let sourceImage = try cropper.decode(source)
         let outputImage = try cropper.decode(output)
         let bounds = result.analysis.requestedCropBounds
@@ -141,9 +156,13 @@ struct CardImageCropperDeskewTests {
                 let out = (y * outputImage.width + x) * 4
                 let into = ((y + bounds.y) * sourceImage.width
                     + (x + bounds.x)) * 4
+                let difference = abs(
+                    Int(outputImage.pixels[out])
+                        - Int(sourceImage.pixels[into])
+                )
                 #expect(
-                    outputImage.pixels[out] == sourceImage.pixels[into],
-                    "pixel (\(x), \(y)) was resampled"
+                    difference <= jpegRoundTripTolerance,
+                    "pixel (\(x), \(y)) differs by \(difference), more than the codec accounts for, so it was resampled"
                 )
                 sampled += 1
             }

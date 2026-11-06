@@ -22,6 +22,66 @@ Say in the PR whether you ran against real hardware or not. "Tests pass, no
 scanner" is a completely fine and useful thing to write; claiming a hardware
 behaviour nobody observed is not.
 
+## What you can expect back
+
+**A human reply within three days**, even when the reply is "not yet" or "not
+this". If you have waited longer than that, the notification was missed rather
+than ignored — say so on the thread and it will be picked up.
+
+This is a small project maintained by one person, so the honest version is:
+review may be slower than you would like, but silence is never the answer and a
+stale PR is a failure on this end, not yours.
+
+## Open an issue first for anything load-bearing
+
+Not bureaucracy — this codebase has unusually strong invariants, and the
+expensive place to discover a scope mismatch is after you have written the code.
+
+**Ask first** if the change touches:
+
+- a `BatchSession` gate, or any safety rule
+- `CardImageCropper` detection constants — these were measured against real
+  scanner artefacts and a plausible-sounding rewrite is how a defect gets back in
+- an invariant in [SPEC.md](SPEC.md), or the v1 scope
+- the `ImageCaptureCore` boundary
+
+**Just send it** for docs, operator copy, tests, accessibility, hardware
+datapoints, or anything already described in an open issue.
+
+One concrete example of why: `AcceptedPairSizeMismatch` stores the two measured
+footprints rather than a `Bool`, and that looks like something to simplify. It
+is not — a `Bool` would carry a person's consent onto a re-measured pair they
+never saw. Several things here are shaped that way, and the reasoning usually
+lives in a doc comment right above the code.
+
+## Do you need an fi-8170?
+
+Almost certainly not. Every issue is labelled `needs-fi-8170` or
+`no-hardware-needed`, and the second group is much larger: the whole reducer,
+the SwiftUI shell, image encoding and DPI metadata, the crash-safety primitives,
+error copy, accessibility, docs and CI.
+
+`swift test` runs 251 tests with no scanner attached, and
+`bash Scripts/bundle-app.sh --synthetic` runs the real crop, margin verdicts,
+deskew and atomic publication against a simulated page source — so you can
+reproduce and fix most UI and pipeline behaviour without hardware.
+
+## Using AI assistance
+
+Allowed, and it does not need to be hidden — but note it in the PR so a reviewer
+knows what kind of scrutiny to apply, and hold it to the same bar as anything
+you wrote by hand. You are the author of what you submit.
+
+Two rules that bind harder here than in most projects, because this codebase's
+safety story rests on things a model cannot check:
+
+- **An LLM cannot observe hardware.** Never let generated text become a claim
+  about what a scanner did. If a pass was not physically run, say so.
+- **Detector constants need evidence, not rationale.** A change to
+  `CardImageCropper`'s thresholds must cite a corpus run. A confident-sounding
+  explanation for a new number is exactly the failure mode those constants were
+  measured to prevent.
+
 ## The most useful contributions right now
 
 - **Exercise the suite.** Run `swift test` on Apple Silicon with Xcode 26 —

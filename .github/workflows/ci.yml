@@ -1,0 +1,144 @@
+name: CI
+
+# ScanDeck compiles only against the macOS 26 SDK — `Package.swift` pins
+# `.macOS(.v26)` and swift-tools-version 6.2 — so every job that touches Swift
+# has to run on a `macos-26` runner. That image went generally available on
+# 2026-02-26, and because this repository is public it costs nothing: standard
+# GitHub-hosted runners are free and unmetered for public repositories.
+#
+# Nothing here needs an fi-8170. The suites that do need real hardware, a real
+# corpus, or the private centering tool are all gated — on a `SCANDECK_*`
+# environment variable, or on a file `.gitignore` deliberately keeps out of
+# this repository — so they skip and the rest runs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer worthless, and
+# a stale green is worse than no answer.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test (macOS 26)
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    env:
+      # Pinned rather than left to the image default. The `macos-26` image
+      # currently defaults to Xcode 26.5, which ships Swift 6.3; this pin is
+      # Xcode 26.3 (build 17C529, Swift 6.2.4), the exact toolchain the 251-test
+      # suite has been verified green against. Strict concurrency is on across
+      # the whole package and a compiler bump is precisely where new
+      # diagnostics land, so moving this number is a deliberate change with its
+      # own review — not something a runner-image refresh gets to do overnight.
+      XCODE_APP: /Applications/Xcode_26.3.app
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      # Fail loudly and legibly if the image has retired this Xcode, rather
+      # than silently compiling against whatever the default happens to be.
+      - name: Select Xcode
+        run: |
+          if [ ! -d "$XCODE_APP" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image."
+            echo "Xcodes present on the runner:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+
+      - name: Record the toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      # ScanDeck has zero external package dependencies, so this cache buys
+      # incremental compilation and nothing else — there are no checkouts to
+      # restore. Keep it keyed tightly enough that a restored `.build` is only
+      # ever a speed-up: the Xcode version is in the key because a toolchain
+      # change invalidates every module inside, and the source hash means the
+      # exact key only hits on a re-run of the same commit. Ordinary runs land
+      # on the prefix via restore-keys and rebuild what changed. It is roughly
+      # 335 MB, well inside the 10 GB repository cache budget.
+      - name: Cache SwiftPM build products
+        uses: actions/cache@v6
+        with:
+          path: .build
+          key: >-
+            ${{ runner.os }}-${{ runner.arch }}-spm-xcode26.3-${{
+            hashFiles('Package.swift', 'Sources/**/*.swift', 'Tests/**/*.swift')
+            }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-spm-xcode26.3-
+
+      - name: Build
+        run: swift build
+
+      # Release, not debug, and it is not a preference: `CardImageCropper`
+      # analyses full-resolution 600 dpi masters, which costs ~47 s per master
+      # in debug against ~0.25 s in release.
+      - name: Test
+        run: swift test -c release
+
+  repository-hygiene:
+    # Free, ~15 s, and needs no macOS. This is the remote half of guards that
+    # currently exist only on the operator's machine: `.gitignore` plus the
+    # `.githooks/pre-commit` hook, which a fresh clone does not have until
+    # someone remembers `git config core.hooksPath .githooks`.
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Nothing private reached the public remote
+        run: |
+          status=0
+          fail() { echo "::error::$1"; status=1; }
+
+          # The centering tool is private. This repository has a live public
+          # remote, so a stray `git add -f` is one push from publishing it.
+          tracked_centering="$(git ls-files centering)"
+          if [ -n "$tracked_centering" ]; then
+            fail "The private centering tool is tracked: $(echo "$tracked_centering" | tr '\n' ' ')"
+          fi
+
+          # Card scans are the operator's images. The corpus lives in
+          # Application Support and must never be committed.
+          tracked_images="$(git ls-files -- '*.jpg' '*.jpeg' '*.png' '*.tiff' '*.tif' '*.heic')"
+          if [ -n "$tracked_images" ]; then
+            fail "Card images are tracked: $(echo "$tracked_images" | tr '\n' ' ')"
+          fi
+
+          # Internal working documents: the ticket queue carries real consignor
+          # and batch names, and the PaperStream research is a derivative of one
+          # copyrighted source.
+          tracked_private="$(git ls-files -- CLAUDE.md PENDINGTICKETS.md 'PaperStream_for_Mac_UI_Spec*' docs/research/paperstream-capture-inventory.md)"
+          if [ -n "$tracked_private" ]; then
+            fail "Private working documents are tracked: $(echo "$tracked_private" | tr '\n' ' ')"
+          fi
+
+          # "PaperStream" is PFU Limited's trademark. Nominative use in prose is
+          # fine and appears throughout the docs; it must never become part of a
+          # shipped product name, target name, or bundle identifier.
+          if grep -i -q 'paperstream' Package.swift Resources/ScanDeck-Info.plist; then
+            fail "PaperStream appears in Package.swift or the app's Info.plist."
+          fi
+
+          if [ "$status" -eq 0 ]; then
+            echo "Repository hygiene checks passed."
+          fi
+          exit "$status"

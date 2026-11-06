@@ -1,0 +1,95 @@
+name: Hardware datapoint
+description: Report what ScanDeck saw on a scanner other than the fi-8170. This is the most valuable report the project can get.
+title: "[hardware] "
+labels: ["hardware-datapoint", "scanner-support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you — this is genuinely the highest-value contribution available.
+
+        ScanDeck supports exactly one scanner today, and widening that is capped
+        by nobody having capability data for anything else. Your report is the
+        seed of the supported-scanner matrix.
+
+        **You do not need the scan to have worked.** A device that fails is just
+        as useful as one that succeeds, as long as we can see *which* capability
+        was missing.
+
+        ⚠️ **Never attach a card scan.** Card images are your property and this
+        repository has never contained one. Paste text output only.
+
+  - type: input
+    id: model
+    attributes:
+      label: Scanner make and model
+      placeholder: "Ricoh fi-8040 / Brother ADS-4300N / Epson DS-C490"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.5.2 (25F84)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How is it connected?
+      options:
+        - USB
+        - Network (Wi-Fi or Ethernet)
+        - Both available, reporting USB
+        - Both available, reporting network
+    validations:
+      required: true
+
+  - type: textarea
+    id: list
+    attributes:
+      label: Output of `swift run scandeck-m0 --list`
+      description: This works on any scanner and is not gated.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: inspect
+    attributes:
+      label: Output of `swift run scandeck-m0 --inspect`
+      description: >
+        Paste the whole thing, including any error. If it refuses your device,
+        that refusal IS the datapoint — paste it verbatim. Note that inspection
+        is currently gated to the fi-8170; if it refuses on those grounds, say
+        so and the `--list` output above is still useful on its own.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: Which of these does the scanner have?
+      description: >
+        These four are what the pipeline actually depends on. Tick what you know;
+        leave the rest blank rather than guessing. The vendor's spec sheet is a
+        fine source.
+      options:
+        - label: Duplex ADF (images both sides in one pass)
+        - label: 600 dpi
+        - label: 24-bit colour
+        - label: An overscan or margin mode that captures background *around* the detected media
+        - label: Automatic media-size detection
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: >
+        Vendor driver name and version, whether Apple Image Capture sees it, or
+        anything that surprised you.
+    validations:
+      required: false

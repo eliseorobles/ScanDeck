@@ -1,0 +1,40 @@
+name: Spec hole or design disagreement
+description: SPEC.md says something wrong, missing, over-engineered, or that you think is a mistake.
+title: "[spec] "
+labels: ["spec"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a real contribution and it is explicitly invited. SPEC.md is the
+        contract, and it has been changed before because someone argued it was
+        wrong — three of the seven invariants carry amendments for exactly that
+        reason.
+
+        You do not need code, a scanner, or a patch. An argument is enough.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What does the spec say, and where?
+      description: Quote it, with the section number.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong with it?
+      description: >
+        Wrong, missing, over-engineered, internally inconsistent, or contradicted
+        by the code — say which, and why it matters to someone using the app.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should it say instead?
+      description: Optional. "I think this is wrong but I don't know the fix" is a legitimate issue.
+    validations:
+      required: false

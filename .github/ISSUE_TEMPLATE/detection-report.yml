@@ -1,0 +1,100 @@
+name: ScanDeck measured a card wrong
+description: A crop clipped the card, kept too much, or the two sides disagreed when they should not have.
+title: "[detection] "
+labels: ["detection", "image-pipeline"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the bug class the project cares most about, because it is the one
+        that can publish a wrong image that still looks plausible.
+
+        ⚠️ **Do not attach the scan.** Card images are your property. Everything
+        below is numbers and text, which is all we need to reproduce the
+        reasoning — and if it turns out we need pixels, we will talk about how to
+        share them privately rather than in a public issue.
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: What went wrong?
+      options:
+        - The crop cut into the card
+        - The crop kept far too much background
+        - The two sides of one card measured very differently
+        - Complete Batch was blocked and I think it should not have been
+        - Complete Batch was allowed and I think it should not have been
+        - The card published visibly crooked
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_the_app_said
+    attributes:
+      label: What did ScanDeck say?
+      description: >
+        The margin badge on the row, the text of any banner, and the completion
+        blocker if there was one. Copy the wording exactly — the copy is part of
+        the product and getting it wrong is itself a bug.
+    validations:
+      required: true
+
+  - type: input
+    id: footprints
+    attributes:
+      label: The two measured footprints, if the card row showed them
+      placeholder: "front 2104 x 2942 px, back 2098 x 2951 px"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: media
+    attributes:
+      label: What was in the feeder?
+      options:
+        - Raw (bare) card
+        - Card in a toploader
+        - Card in a semi-rigid (note - not a supported format)
+        - Card in a penny sleeve only (note - not a supported format)
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: scanner
+    attributes:
+      label: Scanner and macOS version
+      placeholder: "fi-8170, macOS 26.5.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: >
+        Settings → Copy Diagnostics Report. It is content-free by construction —
+        it has no field a path, file name or batch name could go in, and there is
+        a test that proves it.
+      render: shell
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        **If you keep the masters**, you can turn this into a permanent
+        regression yourself without sending anyone an image:
+
+        ```sh
+        SCANDECK_CORPUS_DIR=<dir of _F/_B pairs> SCANDECK_CORPUS_REPORT=/tmp/r.csv \
+            swift test -c release --filter CardImageCropperCorpusDiagnostics
+        ```
+
+        That writes one row per side with both threshold reads, the dominant
+        component, the floor-supported bounds and the raw occupancy outside them
+        — which is the difference between "one side over-detected" and "the other
+        under-detected", opposite fixes on identical-looking evidence. Pasting
+        the CSV rows for the bad pair is the single most useful thing you can
+        attach.

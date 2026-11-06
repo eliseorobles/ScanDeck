@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How changes land, and what to expect back
+    url: https://github.com/eliseorobles/ScanDeck/blob/main/CONTRIBUTING.md
+    about: Branch, PR, review. Also which changes want an issue opened first, and whether you need a scanner (usually not).
+  - name: Will my scanner work?
+    url: https://github.com/eliseorobles/ScanDeck/blob/main/README.md#about-scanner-support
+    about: Only the fi-8170 today. If you have something else, open a hardware datapoint — that is how the list grows.
