@@ -34,7 +34,7 @@ jobs:
     env:
       # Pinned rather than left to the image default. The `macos-26` image
       # currently defaults to Xcode 26.5, which ships Swift 6.3; this pin is
-      # Xcode 26.3 (build 17C529, Swift 6.2.4), the exact toolchain the 251-test
+      # Xcode 26.3 (build 17C529, Swift 6.2.4), the exact toolchain the 267-test
       # suite has been verified green against. Strict concurrency is on across
       # the whole package and a compiler bump is precisely where new
       # diagnostics land, so moving this number is a deliberate change with its

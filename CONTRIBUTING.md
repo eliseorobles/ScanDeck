@@ -61,7 +61,7 @@ Almost certainly not. Every issue is labelled `needs-fi-8170` or
 the SwiftUI shell, image encoding and DPI metadata, the crash-safety primitives,
 error copy, accessibility, docs and CI.
 
-`swift test` runs 251 tests with no scanner attached, and
+`swift test` runs 267 tests with no scanner attached, and
 `bash Scripts/bundle-app.sh --synthetic` runs the real crop, margin verdicts,
 deskew and atomic publication against a simulated page source — so you can
 reproduce and fix most UI and pipeline behaviour without hardware.
@@ -85,7 +85,7 @@ safety story rests on things a model cannot check:
 ## The most useful contributions right now
 
 - **Exercise the suite.** Run `swift test` on Apple Silicon with Xcode 26 —
-  251 tests in 29 suites, no scanner required. Image-pipeline work belongs in
+  267 tests in 31 suites, no scanner required. Image-pipeline work belongs in
   release mode: `swift test -c release --filter CardImageCropperTests`.
   Five suites are opt-in and skip unless a `SCANDECK_*` variable points them at
   a corpus of real scans, so a clean checkout is green with no setup.
